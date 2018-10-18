@@ -1,0 +1,3 @@
+[submodule "pages/bernau"]
+	path = pages/bernau
+	url = git@github.com:lbernau/smartvisuPages.git
