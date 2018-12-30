@@ -107,7 +107,8 @@ $.widget("sv.plot_period", $.sv.widget, {
 		opposite: '',
 		ycolor: '',
 		ytype: '',
-		count: ''
+		count: '',
+		chartOptions: null
 	},
 
 	allowPartialUpdate: true,
@@ -195,7 +196,8 @@ $.widget("sv.plot_period", $.sv.widget, {
 				startOnTick: false,
 				type: ytype[i] || 'linear',
 				svUnit: units[i] || 'float',
-				minTickInterval: 1
+				minTickInterval: 1,
+				showLastLabel: true
 			};
 			styles.push(Array(i+1).join(".highcharts-yaxis ~ ") + ".highcharts-yaxis .highcharts-axis-line { stroke: " + ycolor[i] + "; }");
 			if(ytype[i] == 'boolean') {
@@ -331,6 +333,8 @@ $.widget("sv.plot_period", $.sv.widget, {
 				]
 			};
 
+			$.extend(true, chartOptions, this.options.chartOptions);
+
 			Highcharts.stockChart(this.element[0], chartOptions);
 		}
 		else {
@@ -338,6 +342,9 @@ $.widget("sv.plot_period", $.sv.widget, {
 				chartOptions.chart.zoomType = 'x';
 				chartOptions.xAxis.minRange = new Date().duration(zoom).valueOf();
 			}
+
+			$.extend(true, chartOptions, this.options.chartOptions);
+
 			Highcharts.chart(this.element[0], chartOptions);
 		}
 
@@ -1215,6 +1222,7 @@ $.widget("sv.plot_rtr", $.sv.widget, {
 		tmin: '',
 		tmax: '',
 		count: 100,
+		stateMax: null
 	},
 
 	allowPartialUpdate: true,
@@ -1295,24 +1303,27 @@ $.widget("sv.plot_rtr", $.sv.widget, {
 				chart.series[i].setData(response[i], false);
 			}
 			else if (response[i] && (i == 2)) {
-				// calculate state: diff between timestamps in relation to duration
-
-				var state = chart.series[0].data;
-				var stamp = state[0].x;
-				var percent = 0;
-
-				for (var j = 1; j < state.length; j++) {
-					percent += state[j - 1].y * (state[j].x - stamp);
-					stamp = state[j].x;
+				var state = response[i];
+				var percent = 0, stateMax = 1;
+				if(state.length == 1)
+					percent = state[0][1];
+				else {
+					// calculate state: diff between timestamps in relation to duration
+					for (var j = 1; j < state.length; j++) {
+						var value = state[j - 1][1];
+						percent += value * (state[j][0] - state[j - 1][0]);
+						if(value > 100) // any value is > 100
+							stateMax = 255;
+						if(stateMax == 1 && value > 1) // any value is > 1 and none is > 100
+							stateMax = 100;
+					}
+					percent = percent / (state[state.length-1][0] - state[0][0]);
 				}
-				percent = percent / (stamp - state[0].x);
 
-				if (percent < 1) {
-					percent = percent * 100;
-				}
-				else if (percent > 100) {
-					percent = percent / 255 * 100;
-				}
+				if (!isNaN(this.options.stateMax) && Number(this.options.stateMax) != 0)
+					stateMax = Number(this.options.stateMax);
+
+				percent = percent * 100 / stateMax;
 
 				chart.series[i].setData([percent,100-percent], false, undefined, true);
 			}
